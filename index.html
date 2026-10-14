@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task List</title>
+<style>
+  :root { --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#6e6e73; --accent:#0071e3; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:start center; padding:48px 16px;
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  main { width:min(100%,480px); background:var(--card); border-radius:20px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,.08); }
+  h1 { margin:0 0 16px; font-size:28px; letter-spacing:-.02em; }
+  form { display:flex; gap:8px; }
+  input[type=text] { flex:1; padding:12px 14px; border:1px solid #d2d2d7; border-radius:12px; font-size:16px; }
+  button { font:inherit; cursor:pointer; }
+  .add { padding:0 18px; border:0; border-radius:12px; background:var(--accent); color:#fff; font-weight:600; }
+  :focus-visible { outline:3px solid rgba(0,113,227,.5); outline-offset:2px; }
+  .filters { display:flex; gap:6px; margin:16px 0 8px; }
+  .filters button { padding:6px 12px; border:1px solid #d2d2d7; border-radius:999px; background:none; font-size:14px; }
+  .filters button[aria-pressed=true] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid #ececf0; }
+  li label { flex:1; cursor:pointer; }
+  li.done label { text-decoration:line-through; color:var(--muted); }
+  .del { border:0; background:none; color:var(--muted); font-size:20px; line-height:1; }
+  .del:hover { color:#d70015; }
+  .foot { display:flex; justify-content:space-between; margin-top:14px; color:var(--muted); font-size:14px; }
+  .foot button { border:0; background:none; color:var(--accent); }
+  .empty { color:var(--muted); text-align:center; padding:24px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Task List</h1>
+  <form id="form">
+    <input type="text" id="input" placeholder="What needs to be done?" aria-label="New task" required>
+    <button class="add" type="submit">Add</button>
+  </form>
+  <div class="filters" role="group" aria-label="Filter tasks">
+    <button type="button" data-f="all" aria-pressed="true">All</button>
+    <button type="button" data-f="active" aria-pressed="false">Active</button>
+    <button type="button" data-f="done" aria-pressed="false">Done</button>
+  </div>
+  <ul id="list"></ul>
+  <div class="foot"><span id="count"></span><button type="button" id="clear">Clear completed</button></div>
+</main>
+ 
+<script>
+  // State: an array of { id, text, done }, saved in localStorage
+  let tasks = [];
+  let filter = "all";
+  try { tasks = JSON.parse(localStorage.getItem("tasks")) || []; } catch (e) { tasks = []; }
+ 
+  const $ = (id) => document.getElementById(id);
+  const save = () => { try { localStorage.setItem("tasks", JSON.stringify(tasks)); } catch (e) {} };
+ 
+  function render() {
+    const shown = tasks.filter((t) => filter === "all" || (filter === "done" ? t.done : !t.done));
+    $("list").innerHTML = "";
+    if (!shown.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Nothing here yet.";
+      $("list").appendChild(li);
+    }
+    shown.forEach((t) => {
+      const li = document.createElement("li");
+      li.className = t.done ? "done" : "";
+ 
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.id = "t" + t.id;
+      box.checked = t.done;
+      box.onchange = () => { t.done = box.checked; save(); render(); };
+ 
+      const label = document.createElement("label");
+      label.htmlFor = box.id;
+      label.textContent = t.text; // textContent, so user input is never parsed as HTML
+ 
+      const del = document.createElement("button");
+      del.className = "del";
+      del.type = "button";
+      del.setAttribute("aria-label", "Delete task: " + t.text);
+      del.textContent = "×";
+      del.onclick = () => { tasks = tasks.filter((x) => x.id !== t.id); save(); render(); };
+ 
+      li.append(box, label, del);
+      $("list").appendChild(li);
+    });
+    const left = tasks.filter((t) => !t.done).length;
+    $("count").textContent = left + (left === 1 ? " task left" : " tasks left");
+  }
+ 
+  $("form").onsubmit = (e) => {
+    e.preventDefault();
+    const text = $("input").value.trim();
+    if (!text) return;
+    tasks.push({ id: Date.now(), text, done: false });
+    $("input").value = "";
+    save();
+    render();
+  };
+ 
+  document.querySelectorAll(".filters button").forEach((b) => {
+    b.onclick = () => {
+      filter = b.dataset.f;
+      document.querySelectorAll(".filters button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      render();
+    };
+  });
+ 
+  $("clear").onclick = () => { tasks = tasks.filter((t) => !t.done); save(); render(); };
+ 
+  render();
+</script>
+</body>
+</html>
